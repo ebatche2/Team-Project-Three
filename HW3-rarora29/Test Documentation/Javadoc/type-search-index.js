@@ -1,0 +1,1 @@
+typeSearchIndex = [{"p":"tests","l":"AdjustableClock"},{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"tests","l":"LoginAttemptLimiterTestingAutomation"}];updateSearchResults();

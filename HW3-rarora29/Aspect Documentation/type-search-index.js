@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"authentication","l":"LoginAttemptLimiter.AttemptRecord"},{"p":"authentication","l":"LoginAttemptLimiter"}];updateSearchResults();
