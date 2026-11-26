@@ -160,6 +160,7 @@ public class Database {
 	    statement.execute("ALTER TABLE lessonsDB ADD COLUMN IF NOT EXISTS "
 	    		+ "descriptionLocked BOOL DEFAULT FALSE");
 	    statement.execute("ALTER TABLE lessonsDB ADD COLUMN IF NOT EXISTS curatorNotes VARCHAR(4000)");
+	    statement.execute("ALTER TABLE lessonsDB ADD COLUMN IF NOT EXISTS timeEffortVisible BOOL DEFAULT TRUE");
 	    
 	    String experienceTable = "CREATE TABLE IF NOT EXISTS experienceDB ("
 	    		+ "id INT AUTO_INCREMENT PRIMARY KEY, "
@@ -1620,8 +1621,39 @@ public class Database {
 	 * 
 	 * @return a list of formatted experience entries
 	 */
+	/**
+	 * Returns whether time and effort statistics for a lesson are visible to the contributor.
+	 */
+	public boolean isTimeEffortVisible(int lessonId) {
+		String query = "SELECT timeEffortVisible FROM lessonsDB WHERE id = ?";
+		try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+			pstmt.setInt(1, lessonId);
+			ResultSet rs = pstmt.executeQuery();
+			if (rs.next()) return rs.getBoolean(1);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return true;
+	}
+
+	/**
+	 * Updates whether time and effort statistics for a lesson are visible to the contributor.
+	 */
+	public boolean updateTimeEffortVisible(int lessonId, boolean visible) {
+		String query = "UPDATE lessonsDB SET timeEffortVisible = ? WHERE id = ?";
+		try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+			pstmt.setBoolean(1, visible);
+			pstmt.setInt(2, lessonId);
+			return pstmt.executeUpdate() > 0;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+
 	public List<String> getExperienceList(int lessonId, String contributor) {
 		List<String> experienceList = new ArrayList<String>();
+		boolean showStats = isTimeEffortVisible(lessonId);
 		String query = "SELECT whatWasDone, howItWasDone, timeTaken, teamEffort FROM experienceDB "
 				+ "WHERE lessonID = ? AND contributor = ? ORDER BY id";
 		try (PreparedStatement pstmt = connection.prepareStatement(query)) {
@@ -1629,8 +1661,10 @@ public class Database {
 			pstmt.setString(2, contributor);
 			ResultSet rs = pstmt.executeQuery();
 			while (rs.next()) {
+				String timeText = showStats ? rs.getString(3) : "[Hidden by Curator]";
+				String effortText = showStats ? rs.getString(4) : "[Hidden by Curator]";
 				experienceList.add("What: " + rs.getString(1) + " | How: " + rs.getString(2)
-						+ " | Time: " + rs.getString(3) + " | Effort: " + rs.getString(4));
+						+ " | Time: " + timeText + " | Effort: " + effortText);
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();

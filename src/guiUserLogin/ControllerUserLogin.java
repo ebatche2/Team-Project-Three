@@ -2,6 +2,7 @@ package guiUserLogin;
 
 import java.util.Optional;
 
+import authentication.LoginAttemptLimiter;
 import database.Database;
 import entityClasses.User;
 import javafx.scene.control.Alert;
@@ -55,6 +56,9 @@ public class ControllerUserLogin {
 	// Reference for the in-memory database so this package has access
 	private static Database theDatabase = applicationMain.FoundationsMain.database;
 
+	/** Limits consecutive failed login attempts per username (TP3 Aspect 5). */
+	private static final LoginAttemptLimiter loginLimiter = new LoginAttemptLimiter();
+
 	private static Stage theStage;	
 	
 	/**********
@@ -86,10 +90,21 @@ public class ControllerUserLogin {
 		String errorBorder = "-fx-border-color: #ED4245; -fx-border-width: 2; "
 				+ "-fx-border-radius: 3;";
     	
+		// Check if this username is currently delayed due to repeated failed attempts
+		if (loginLimiter.isDelayed(username)) {
+			long secondsLeft = Math.max(1, loginLimiter.remainingDelay(username).toSeconds());
+			ViewUserLogin.text_Username.setStyle(errorBorder);
+			ViewUserLogin.text_Password.setStyle(errorBorder);
+			ViewUserLogin.label_LoginError.setText(
+					"Too many failed attempts. Try again in " + secondsLeft + "s.");
+			return;
+		}
+
 		// Fetch the user and verify the username
      	if (theDatabase.getUserAccountDetails(username) == false) {
      		// Don't provide too much information.  Don't say the username is invalid or the
      		// password is invalid.  Just say the pair is invalid.
+     		loginLimiter.recordFailure(username);
      		ViewUserLogin.text_Username.setStyle(errorBorder);
      		ViewUserLogin.text_Password.setStyle(errorBorder);
      		ViewUserLogin.label_LoginError.setText("Incorrect username/password. Try again!");
@@ -101,11 +116,15 @@ public class ControllerUserLogin {
     	String actualPassword = theDatabase.getCurrentPassword();
     	
     	if (password.compareTo(actualPassword) != 0) {
+    		loginLimiter.recordFailure(username);
     		ViewUserLogin.text_Username.setStyle(errorBorder);
     		ViewUserLogin.text_Password.setStyle(errorBorder);
     		ViewUserLogin.label_LoginError.setText("Incorrect username/password. Try again!");
     		return;
     	}
+
+    	// Valid credentials clear any prior failed-attempt count
+    	loginLimiter.recordSuccess(username);
 		// System.out.println("*** Password is valid for this user");
 		// System.out.println("*** Password is valid for this user");
 		// System.out.println("*** Password is valid for this user");

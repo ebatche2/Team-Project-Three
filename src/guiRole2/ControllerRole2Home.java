@@ -2,6 +2,10 @@ package guiRole2;
 
 import java.util.*;
 import database.Database;
+import entityClasses.SearchTermValidator;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+import limits.AIRequestLimiter;
 
 /*******
  * <p> Title: ControllerRole2Home Class. </p>
@@ -43,6 +47,9 @@ public class ControllerRole2Home {
 	
 	/** A variable to allow the code to access the database **/
 	private static Database theDatabase = applicationMain.FoundationsMain.database;
+
+	/** Rate-limits curator AI requests per hour (TP3 Aspect 2). */
+	private static final AIRequestLimiter aiLimiter = new AIRequestLimiter();
 	
 	/** The id of the lesson selected in the combo box, or -1 when no lesson is selected **/
 	private static int selectedLessonId = -1;
@@ -81,6 +88,12 @@ public class ControllerRole2Home {
 			ViewRole2Home.checkbox_LockLesson.setDisable(true);
 			ViewRole2Home.checkbox_LockTitle.setDisable(true);
 			ViewRole2Home.checkbox_LockDescription.setDisable(true);
+			ViewRole2Home.checkbox_TimeEffortVisible.setSelected(true);
+			ViewRole2Home.checkbox_TimeEffortVisible.setDisable(true);
+			ViewRole2Home.button_AISearchTerms.setDisable(true);
+			ViewRole2Home.button_AIRefineLesson.setDisable(true);
+			ViewRole2Home.text_AIOutput.setText("");
+			updateAIStatusLabel();
 			return;
 		}
 		
@@ -100,6 +113,12 @@ public class ControllerRole2Home {
 		ViewRole2Home.checkbox_LockLesson.setDisable(false);
 		ViewRole2Home.checkbox_LockTitle.setDisable(false);
 		ViewRole2Home.checkbox_LockDescription.setDisable(false);
+		ViewRole2Home.checkbox_TimeEffortVisible.setSelected(
+				theDatabase.isTimeEffortVisible(selectedLessonId));
+		ViewRole2Home.checkbox_TimeEffortVisible.setDisable(false);
+		ViewRole2Home.button_AISearchTerms.setDisable(false);
+		ViewRole2Home.button_AIRefineLesson.setDisable(false);
+		updateAIStatusLabel();
 	}
 	
 	/**********
@@ -115,6 +134,87 @@ public class ControllerRole2Home {
 		if (selectedLessonId < 0) return;
 		theDatabase.updateLessonLock(selectedLessonId, field, locked);
 		selectLesson();
+	}
+
+	/**
+	 * Updates whether time and effort stats are visible to the contributor (Elijah's Epic / Aspect 4).
+	 */
+	protected static void performTimeEffortVisibilityChange(boolean visible) {
+		if (selectedLessonId < 0) return;
+		theDatabase.updateTimeEffortVisible(selectedLessonId, visible);
+		selectLesson();
+	}
+
+	/**
+	 * Generates validated, rate-limited AI search terms for the selected lesson (Ronald's Epic).
+	 */
+	protected static void performGenerateAISearchTerms() {
+		if (selectedLessonId < 0) return;
+		String userName = ViewRole2Home.theUser.getUserName();
+		String title = ViewRole2Home.text_Title.getText().trim();
+		String desc = ViewRole2Home.text_Description.getText().trim();
+
+		String validationError = SearchTermValidator.checkTerm(title);
+		if (!validationError.isEmpty()) {
+			showAlert("Invalid Lesson Input", validationError);
+			return;
+		}
+
+		String limitMsg = aiLimiter.tryRequest(userName, System.currentTimeMillis());
+		if (!limitMsg.isEmpty()) {
+			showAlert("AI Request Limit Reached", limitMsg);
+			updateAIStatusLabel();
+			return;
+		}
+
+		Set<String> keywords = new LinkedHashSet<String>();
+		for (String word : (title + " " + desc).toLowerCase().split("[^a-z0-9]+")) {
+			if (word.length() >= 4) keywords.add(word);
+			if (keywords.size() >= 10) break;
+		}
+		ViewRole2Home.text_AIOutput.setText("Suggested Search Terms: " + String.join(", ", keywords));
+		updateAIStatusLabel();
+	}
+
+	/**
+	 * Generates validated, rate-limited AI refinement suggestions for the selected lesson (Hung's Epic).
+	 */
+	protected static void performAIRefineLesson() {
+		if (selectedLessonId < 0) return;
+		String userName = ViewRole2Home.theUser.getUserName();
+		String title = ViewRole2Home.text_Title.getText().trim();
+		String desc = ViewRole2Home.text_Description.getText().trim();
+
+		if (title.isEmpty() || desc.isEmpty()) {
+			showAlert("Invalid Lesson Input", "Lesson title and description must not be empty.");
+			return;
+		}
+
+		String limitMsg = aiLimiter.tryRequest(userName, System.currentTimeMillis());
+		if (!limitMsg.isEmpty()) {
+			showAlert("AI Request Limit Reached", limitMsg);
+			updateAIStatusLabel();
+			return;
+		}
+
+		String refined = "Refined Lesson Summary:\nTitle: " + title
+				+ "\nKey Takeaway: " + desc.replaceAll("\\s+", " ").trim();
+		ViewRole2Home.text_AIOutput.setText(refined);
+		updateAIStatusLabel();
+	}
+
+	private static void updateAIStatusLabel() {
+		if (ViewRole2Home.theUser == null) return;
+		int left = aiLimiter.getRemaining(ViewRole2Home.theUser.getUserName(), System.currentTimeMillis());
+		ViewRole2Home.label_AIStatus.setText("AI requests left this hour: " + left);
+	}
+
+	private static void showAlert(String title, String message) {
+		Alert alert = new Alert(AlertType.INFORMATION);
+		alert.setTitle(title);
+		alert.setHeaderText(null);
+		alert.setContentText(message);
+		alert.showAndWait();
 	}
 
 	/**********

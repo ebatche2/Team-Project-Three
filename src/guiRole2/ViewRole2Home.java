@@ -84,6 +84,16 @@ public class ViewRole2Home {
 	protected static CheckBox checkbox_LockTitle = new CheckBox("Lock Title");
 	/** Button to Lock Lesson Description **/
 	protected static CheckBox checkbox_LockDescription = new CheckBox("Lock Description");
+	/** Toggle to make time and effort statistics visible or hidden to contributor **/
+	protected static CheckBox checkbox_TimeEffortVisible = new CheckBox("Show Time & Effort to Contributor");
+	/** Button to generate AI search terms for the selected lesson **/
+	protected static Button button_AISearchTerms = new Button("AI Search Terms");
+	/** Button to refine lesson details using AI **/
+	protected static Button button_AIRefineLesson = new Button("AI Refine Lesson");
+	/** Label showing remaining AI requests or status **/
+	protected static Label label_AIStatus = new Label("");
+	/** Output area for AI search terms and refined lesson suggestions **/
+	protected static TextArea text_AIOutput = new TextArea();
 	
 	/** This is a separator and it is used to partition the GUI for various tasks **/
 	protected static Line line_Separator4 = new Line(20, 525, width-20,525);
@@ -238,6 +248,27 @@ public class ViewRole2Home {
 		checkbox_LockDescription.setOnAction((_) -> 
 			{ControllerRole2Home.performLockChange("Description", 
 					checkbox_LockDescription.isSelected()); });
+
+		setupCheckBoxUI(checkbox_TimeEffortVisible, "Arial", 16, 130, 335);
+		checkbox_TimeEffortVisible.setOnAction((_) ->
+			{ControllerRole2Home.performTimeEffortVisibilityChange(
+					checkbox_TimeEffortVisible.isSelected()); });
+
+		setupButtonUI(button_AISearchTerms, "Dialog", 14, 175, Pos.CENTER, 130, 372);
+		button_AISearchTerms.setOnAction((_) -> {ControllerRole2Home.performGenerateAISearchTerms(); });
+
+		setupButtonUI(button_AIRefineLesson, "Dialog", 14, 175, Pos.CENTER, 315, 372);
+		button_AIRefineLesson.setOnAction((_) -> {ControllerRole2Home.performAIRefineLesson(); });
+
+		setupLabelUI(label_AIStatus, "Arial", 13, 280, Pos.BASELINE_LEFT, 500, 378);
+
+		text_AIOutput.setFont(Font.font("Arial", 14));
+		text_AIOutput.setWrapText(true);
+		text_AIOutput.setEditable(false);
+		text_AIOutput.setPromptText("AI search terms or refined lesson suggestions will appear here...");
+		text_AIOutput.setPrefSize(650, 100);
+		text_AIOutput.setLayoutX(130);
+		text_AIOutput.setLayoutY(412);
 		
 		
 		// GUI Area 3
@@ -255,6 +286,8 @@ public class ViewRole2Home {
     			label_SelectLesson, combobox_SelectLesson, label_Title, text_Title,
     			label_Description, text_Description,
     			checkbox_LockLesson, checkbox_LockTitle, checkbox_LockDescription,
+				checkbox_TimeEffortVisible, button_AISearchTerms, button_AIRefineLesson,
+				label_AIStatus, text_AIOutput,
     	        line_Separator4, button_Logout, button_Quit);
 	}
 	

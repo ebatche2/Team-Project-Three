@@ -1,6 +1,7 @@
 package guiRole1;
 
 import java.util.List;
+import authorization.LessonAuthorization;
 import database.Database;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -95,10 +96,15 @@ public class ControllerRole1Home {
 		String userName = ViewRole1Home.theUser.getUserName();
 		if (!theDatabase.getLessonDetails(selectedLessonID, userName)) return;
 		
-		// A locked lesson locks every field
+		// Use LessonAuthorization (Aspects 3 & 4) as the single decision point for locks and deletion
 		boolean lessonLocked = theDatabase.getCurrentLessonLocked();
-		boolean titleLocked = lessonLocked || theDatabase.getCurrentTitleLocked();
-		boolean descriptionLocked = lessonLocked || theDatabase.getCurrentDescriptionLocked();
+		boolean isOwner = true;
+		boolean titleLocked = LessonAuthorization.isFieldLocked(
+				lessonLocked, theDatabase.getCurrentTitleLocked(), isOwner);
+		boolean descriptionLocked = LessonAuthorization.isFieldLocked(
+				lessonLocked, theDatabase.getCurrentDescriptionLocked(), isOwner);
+		boolean canDelete = LessonAuthorization.isDeletable(
+				userName, userName, lessonLocked, titleLocked || descriptionLocked);
 		
 		ViewRole1Home.text_Title.setText(theDatabase.getCurrentLessonTitle());
 		ViewRole1Home.text_Title.setEditable(!titleLocked);
@@ -111,7 +117,7 @@ public class ControllerRole1Home {
 		// A lesson with any lock can not be deleted, and there is nothing to save if all are locked
 		ViewRole1Home.button_AddLesson.setDisable(true);
 		ViewRole1Home.button_SaveLesson.setDisable(titleLocked && descriptionLocked);
-		ViewRole1Home.button_DeleteLesson.setDisable(titleLocked || descriptionLocked);
+		ViewRole1Home.button_DeleteLesson.setDisable(!canDelete);
 		ViewRole1Home.button_AddExperience.setDisable(false);
 		
 		ViewRole1Home.list_Experience.getItems().setAll(
@@ -190,7 +196,14 @@ public class ControllerRole1Home {
 		if (confirm.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL) != 
 				javafx.scene.control.ButtonType.OK) return;
 		
-		if (theDatabase.deleteLesson(selectedLessonID, ViewRole1Home.theUser.getUserName()))
+		String currentUser = ViewRole1Home.theUser.getUserName();
+		boolean anyFieldLocked = !ViewRole1Home.text_Title.isEditable() || !ViewRole1Home.text_Description.isEditable();
+		if (!LessonAuthorization.isDeletable(currentUser, currentUser, theDatabase.getCurrentLessonLocked(), anyFieldLocked)) {
+			showMessage("Not Deleted", "This lesson is locked and can not be deleted.");
+			return;
+		}
+
+		if (theDatabase.deleteLesson(selectedLessonID, currentUser))
 			showMessage("Lesson Deleted", "The lesson has been deleted.");
 		else
 			showMessage("Not Deleted", "This lesson is locked and can not be deleted.");
